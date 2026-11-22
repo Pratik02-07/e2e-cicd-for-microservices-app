@@ -524,7 +524,7 @@ Jenkins parameterized rollback job:
 **Shift-left security:** Trivy scans run on every build before images are pushed. Secrets are never in Git — they live in Jenkins credentials + Ansible Vault.
 
 ---
-
+<!-- 
 ## Demo Checklist for Interviews
 
 - [ ] GitHub repo with `main`, `develop`, feature branches and PR review
@@ -567,7 +567,4 @@ Jenkins parameterized rollback job:
 - [ ] GitHub branch protection requiring the Jenkins pipeline to pass before merge
 
 ---
-
-## License
-
-Educational / capstone project. For interview demo purposes only.
+ -->
