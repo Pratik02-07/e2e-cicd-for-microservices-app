@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  frontend:
+    image: ${REGISTRY:-pratik0207}/frontend:${IMAGE_TAG:-latest}
+    ports:
+      - "80:80"
+    environment:
+      - PRODUCT_URL=http://product-service:5001
+      - CART_URL=http://cart-service:5002
+    depends_on:
+      product-service:
+        condition: service_healthy
+      cart-service:
+        condition: service_healthy
+    networks:
+      - app-net
+
+  product-service:
+    image: ${REGISTRY:-pratik0207}/product-service:${IMAGE_TAG:-latest}
+    ports:
+      - "5001:5001"
+    networks:
+      - app-net
+
+  cart-service:
+    image: ${REGISTRY:-pratik0207}/cart-service:${IMAGE_TAG:-latest}
+    ports:
+      - "5002:5002"
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

@@ -1,0 +1,9 @@
+- name: Provision and deploy microservices app
+  hosts: all
+  become: yes
+  vars_files:
+    - group_vars/{{ env }}.yml
+    - vault.yml
+  roles:
+    - docker
+    - deploy_app

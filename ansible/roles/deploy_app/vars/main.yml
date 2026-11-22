@@ -1,0 +1,2 @@
+# Role-level defaults (overridden by group_vars / extra-vars)
+app_name: microservices-app

@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+.Docker*
+.vscode/
+*.log
+pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+
+# Secrets — never commit
+ansible/vault_password.txt
+ansible/vault.yml

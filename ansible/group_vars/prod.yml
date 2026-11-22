@@ -1,0 +1,12 @@
+env: prod
+image_tag: latest
+registry: pratik0207
+app_name: microservices-app
+compose_file: docker-compose.yml
+services:
+  - frontend
+  - product-service
+  - cart-service
+frontend_port: 80
+product_port: 5001
+cart_port: 5002
