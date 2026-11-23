@@ -14,3 +14,15 @@ node_modules/
 # Secrets — never commit
 ansible/vault_password.txt
 ansible/vault.yml
+
+# Terraform — never commit state or local provider cache
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+terraform.tfstate.*
+crash.log
+*.tfvars
+**/.terraform/**
+**/*.tfstate*
+CloudOps.pem

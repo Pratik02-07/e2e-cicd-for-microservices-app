@@ -2,22 +2,24 @@
 
 **Capstone Project 1** — Build a complete delivery pipeline from a GitHub commit to running containers across Dev, Staging, and Production environments, with quality gates (SonarQube + Trivy), manual production approval, Slack/email notifications, and parameterized rollback.
 
-> **Role:** Fresher AWS DevOps Engineer | **Duration:** ~2 weeks | **Stack:** GitHub • Jenkins • Docker • Docker Compose • Ansible • SonarQube • Trivy • AWS EC2/ECR
+> **Stack:** GitHub • Jenkins • Docker • Docker Compose • Ansible • SonarQube • Trivy • AWS EC2 • DockerHub
 
 ---
 
 ## Table of Contents
+
 1. [Architecture](#architecture)
 2. [Repository Structure](#repository-structure)
 3. [Prerequisites](#prerequisites)
 4. [Setup — Local / AWS EC2](#setup)
 5. [Jenkins Pipeline (8 Stages, 3 Gates)](#jenkins-pipeline)
 6. [Ansible Multi-Environment Deployment](#ansible-multi-environment-deployment)
-7. [Quality Gates & Security](#quality-gates--security)
-8. [Security Hardening & Trivy Remediation](#security-hardening--trivy-remediation)
-9. [Rollback Procedure](#rollback-procedure)
-10. [Demo Checklist for Interviews](#demo-checklist-for-interviews)
-11. [What Broke & How We Fixed It](#what-broke--how-we-fixed-it)
+7. [Ansible Dynamic Inventory (EC2)](#ansible-dynamic-inventory-ec2)
+8. [Quality Gates & Security](#quality-gates--security)
+9. [Security Hardening & Trivy Remediation](#security-hardening--trivy-remediation)
+10. [Rollback Procedure](#rollback-procedure)
+<!-- 11. [Demo Checklist for Interviews](#demo-checklist-for-interviews)
+11. [What Broke & How We Fixed It](#what-broke--how-we-fixed-it) -->
 
 ---
 
@@ -103,15 +105,15 @@ End-to-End CICD for Microservices App/
 
 ## Prerequisites
 
-| Tool | Purpose | Install |
-|------|---------|---------|
-| Docker & Docker Compose | Containerize services | [docker.com](https://docs.docker.com/engine/install/) |
-| Jenkins | CI/CD orchestrator | `docker run -p 8080:8080 jenkins/jenkins:lts` |
-| SonarQube | Code quality gate | `docker run -d --name sonarqube -p 9000:9000 sonarqube:community` |
-| Trivy | Container vulnerability scan | `aquasec/trivy` (Docker) or binary |
-| AWS CLI | ECR push (optional) | `pip install awscli` |
-| Ansible | Config mgmt & deployment | `pip install ansible` |
-| Python 3.11+ | Service runtime | python.org |
+| Tool                    | Purpose                      | Install                                                           |
+| ----------------------- | ---------------------------- | ----------------------------------------------------------------- |
+| Docker & Docker Compose | Containerize services        | [docker.com](https://docs.docker.com/engine/install/)             |
+| Jenkins                 | CI/CD orchestrator           | `docker run -p 8080:8080 jenkins/jenkins:lts`                     |
+| SonarQube               | Code quality gate            | `docker run -d --name sonarqube -p 9000:9000 sonarqube:community` |
+| Trivy                   | Container vulnerability scan | `aquasec/trivy` (Docker) or binary                                |
+| AWS CLI                 | ECR push (optional)          | `pip install awscli`                                              |
+| Ansible                 | Config mgmt & deployment     | `pip install ansible`                                             |
+| Python 3.11+            | Service runtime              | python.org                                                        |
 
 > **Cost tip:** Run everything on local VMs (Vagrant/VirtualBox) or AWS Free Tier EC2 (t2.micro). Remember to `terraform destroy` / terminate instances when done.
 
@@ -120,6 +122,7 @@ End-to-End CICD for Microservices App/
 ## Setup
 
 ### 1. Clone / initialize the repo
+
 ```bash
 cd "E:\PRATIK\Coding\AWS-DevOps\Arbor-project\End-to-End CICD for Microservices App"
 git init
@@ -130,6 +133,7 @@ git checkout -b feature/cicd-pipeline
 ```
 
 ### 2. Create GitHub repo & protect branches
+
 - Create a private/public repo on GitHub: `microservices-cicd-capstone`
 - Push `main`, `develop`, and feature branches
 - Settings → Branches → Add rule for `main`:
@@ -138,15 +142,17 @@ git checkout -b feature/cicd-pipeline
   - Restrict pushes to admins
 
 ### 3. Jenkins credentials (Manage Jenkins → Credentials)
-| Credential ID | Type | Value |
-|---------------|------|-------|
-| `dockerhub-creds` | Secret text | Docker Hub password / AWS ECR token |
-| `aws-access-key-id` | Secret text | AWS access key |
-| `aws-secret-access-key` | Secret text | AWS secret key |
-| `slack-webhook` | Secret text | Slack incoming webhook URL |
-| `ansible-vault` | Secret text | Ansible Vault password |
+
+| Credential ID           | Type        | Value                               |
+| ----------------------- | ----------- | ----------------------------------- |
+| `dockerhub-creds`       | Secret text | Docker Hub password / AWS ECR token |
+| `aws-access-key-id`     | Secret text | AWS access key                      |
+| `aws-secret-access-key` | Secret text | AWS secret key                      |
+| `slack-webhook`         | Secret text | Slack incoming webhook URL          |
+| `ansible-vault`         | Secret text | Ansible Vault password              |
 
 ### 4. SonarQube token
+
 - Log into SonarQube → My Account → Security → Generate token → add as Jenkins secret text `sonar-token`
 
 ---
@@ -158,6 +164,7 @@ File: `jenkins/Jenkinsfile`
 The pipeline is declarative. Stages run in order; a failed gate aborts the build.
 
 **Three gates:**
+
 1. **SonarQube quality gate** — must pass (no bugs, vulnerabilities, code smells above threshold)
 2. **Trivy scan** — must find zero `CRITICAL` or `HIGH` vulnerabilities
 3. **Manual approval** — required before deploying to Production
@@ -325,11 +332,12 @@ pipeline {
 Separate inventory + variables per environment. `ansible-vault` encrypts secrets (DB passwords, API keys).
 
 ### Inventory example (`ansible/inventory/dev/hosts.yml`)
+
 ```yaml
 dev_servers:
   hosts:
     dev-ec2:
-      ansible_host: 3.210.x.x          # replace with your EC2 public IP
+      ansible_host: 3.210.x.x # replace with your EC2 public IP
       ansible_user: ec2-user
       ansible_ssh_private_key_file: ~/.ssh/id_rsa
   vars:
@@ -337,6 +345,7 @@ dev_servers:
 ```
 
 ### Group vars (`ansible/group_vars/dev.yml`)
+
 ```yaml
 env: dev
 image_tag: latest
@@ -351,13 +360,16 @@ cart_port: 5002
 ```
 
 ### Vault (`ansible/vault.yml`)
+
 ```yaml
 db_password: "change_me_in_prod"
 api_secret: "super-secret-key"
 ```
+
 Encrypt: `ansible-vault encrypt ansible/vault.yml --vault-password-file ansible/vault_password.txt`
 
 ### Role: docker (`ansible/roles/docker/tasks/main.yml`)
+
 ```yaml
 - name: Install required system packages
   apt:
@@ -394,18 +406,19 @@ Encrypt: `ansible-vault encrypt ansible/vault.yml --vault-password-file ansible/
 ```
 
 ### Role: deploy_app (`ansible/roles/deploy_app/tasks/main.yml`)
+
 ```yaml
 - name: Create app directory
   file:
     path: /opt/{{ app_name }}
     state: directory
-    mode: '0755'
+    mode: "0755"
 
 - name: Copy docker-compose template
   template:
     src: docker-compose.j2
     dest: /opt/{{ app_name }}/docker-compose.yml
-    mode: '0644'
+    mode: "0644"
 
 - name: Pull and start containers
   community.docker.docker_compose_v2:
@@ -424,6 +437,7 @@ Encrypt: `ansible-vault encrypt ansible/vault.yml --vault-password-file ansible/
 ```
 
 ### Template (`ansible/roles/deploy_app/templates/docker-compose.j2`)
+
 ```jinja2
 version: '3.8'
 services:
@@ -460,6 +474,7 @@ networks:
 ```
 
 ### Master playbook (`ansible/site.yml`)
+
 ```yaml
 - name: Provision and deploy microservices app
   hosts: all
@@ -473,6 +488,7 @@ networks:
 ```
 
 Run manually for testing:
+
 ```bash
 ansible-playbook -i ansible/inventory/dev/hosts.yml ansible/site.yml \
   --extra-vars "env=dev image_tag=abc1234 registry=pratik0207" \
@@ -508,6 +524,7 @@ echo "Rollback complete. Verify: curl http://<server>:80/health"
 ```
 
 Jenkins parameterized rollback job:
+
 - String param: `ENVIRONMENT` (dev/staging/prod)
 - String param: `PREVIOUS_TAG`
 - Build step: shell → `scripts/rollback.sh $ENVIRONMENT $PREVIOUS_TAG`
@@ -516,11 +533,11 @@ Jenkins parameterized rollback job:
 
 ## Quality Gates & Security
 
-| Gate | Tool | Fail condition |
-|------|------|----------------|
-| Gate 1 | SonarQube | Quality gate status = ERROR (bugs/vulnerabilities/code smells) |
-| Gate 2 | Trivy | Any `CRITICAL` or `HIGH` CVE in image |
-| Gate 3 | Jenkins input | No production deploy without manual approval |
+| Gate   | Tool          | Fail condition                                                 |
+| ------ | ------------- | -------------------------------------------------------------- |
+| Gate 1 | SonarQube     | Quality gate status = ERROR (bugs/vulnerabilities/code smells) |
+| Gate 2 | Trivy         | Any `CRITICAL` or `HIGH` CVE in image                          |
+| Gate 3 | Jenkins input | No production deploy without manual approval                   |
 
 **Shift-left security:** Trivy scans run on every build before images are pushed. Secrets are never in Git — they live in Jenkins credentials + Ansible Vault.
 
@@ -528,16 +545,17 @@ Jenkins parameterized rollback job:
 
 After the initial Trivy scans, the following HIGH/MEDIUM findings were remediated across all three service images:
 
-| Finding | Severity | Fix Applied |
-|---------|----------|-------------|
-| Container running as `root` | HIGH | Added non-root `appuser` + `USER appuser` directive in all Dockerfiles |
-| Outdated Debian base packages | MEDIUM | `apt-get update && apt-get upgrade -y` for OS security patches |
-| Missing security headers in Flask responses | MEDIUM | Added `after_request` handler setting `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Strict-Transport-Security` |
-| Unpinned transitive dependencies | LOW | Pinned exact versions in all `requirements.txt` (Flask, Werkzeug, gunicorn) |
+| Finding                                     | Severity | Fix Applied                                                                                                                        |
+| ------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Container running as `root`                 | HIGH     | Added non-root `appuser` + `USER appuser` directive in all Dockerfiles                                                             |
+| Outdated Debian base packages               | MEDIUM   | `apt-get update && apt-get upgrade -y` for OS security patches                                                                     |
+| Missing security headers in Flask responses | MEDIUM   | Added `after_request` handler setting `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Strict-Transport-Security` |
+| Unpinned transitive dependencies            | LOW      | Pinned exact versions in all `requirements.txt` (Flask, Werkzeug, gunicorn)                                                        |
 
 ### Remediated Dockerfiles
 
 Each service Dockerfile now:
+
 1. Uses multi-stage build (builder → slim runtime)
 2. Runs `apt-get upgrade` for security patches
 3. Creates a non-root `appuser` and switches to it with `USER appuser`
@@ -557,13 +575,110 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image
   --exit-code 1 --severity CRITICAL,HIGH pratik0207/product-service:latest
 ```
 
-### Interview talking point
+<!-- ### Interview talking point -->
 
 > "I ran Trivy on my container images and found HIGH-severity findings for running as root and outdated base packages. I remediated them by adding a non-root user, running apt-get upgrade in the build stage, adding Flask security headers, and pinning dependency versions. The re-scan passed with zero CRITICAL/HIGH findings."
 
 ---
 
-<!-- 
+## Ansible Dynamic Inventory (EC2)
+
+Instead of hardcoding public IPs in static inventory files, this project uses the **AWS EC2 dynamic inventory plugin** (`amazon.aws.aws_ec2`). Ansible queries AWS in real-time and groups instances by their tags — so when an EC2 instance is replaced or its IP changes, Ansible picks it up automatically with zero inventory edits.
+
+### 1. Tag your 3 EC2 instances
+
+Tag each instance so Ansible can discover and group them:
+
+| Instance | Tag: `Environment` | Tag: `AnsibleGroup` | Purpose     |
+| -------- | ------------------ | ------------------- | ----------- |
+| EC2-1    | `dev`              | `dev_servers`       | Development |
+| EC2-2    | `staging`          | `staging_servers`   | Staging     |
+| EC2-3    | `prod`             | `prod_servers`      | Production  |
+
+```bash
+aws ec2 create-tags --resources i-0123456789abcdef0 \
+  --tags Key=Environment,Value=dev Key=AnsibleGroup,Value=dev_servers Key=Name,Value=dev-ec2
+aws ec2 create-tags --resources i-0123456789abcdef1 \
+  --tags Key=Environment,Value=staging Key=AnsibleGroup,Value=staging_servers Key=Name,Value=staging-ec2
+aws ec2 create-tags --resources i-0123456789abcdef2 \
+  --tags Key=Environment,Value=prod Key=AnsibleGroup,Value=prod_servers Key=Name,Value=prod-ec2
+```
+
+**IAM permission:** The machine running Ansible needs `ec2:DescribeInstances` (attach `AmazonEC2ReadOnlyAccess` or use an IAM role).
+
+### 2. Install the AWS collection
+
+```bash
+ansible-galaxy collection install amazon.aws
+```
+
+### 3. Dynamic inventory file
+
+**`ansible/inventory/aws_ec2.yml`**
+
+```yaml
+plugin: amazon.aws.aws_ec2
+regions:
+  - us-east-1 # change to your region (e.g., ap-south-1)
+keyed_groups:
+  - prefix: env
+    key: tags.Environment
+    separator: ""
+  - prefix: group
+    key: tags.AnsibleGroup
+    separator: ""
+hostnames:
+  - tag:Name
+  - private-dns-name
+  - public-ip-address
+strict: false
+```
+
+This creates groups like `env_dev`, `env_staging`, `env_prod` (from `Environment` tag) and `group_dev_servers`, etc. (from `AnsibleGroup` tag).
+
+### 4. Update `ansible.cfg`
+
+```ini
+[defaults]
+inventory = ./inventory/aws_ec2.yml
+host_key_checking = False
+retry_files_enabled = False
+stdout_callback = yaml
+private_key_file = ~/.ssh/id_rsa
+remote_user = ec2-user
+
+[privilege_escalation]
+become = yes
+```
+
+### 5. Test and run
+
+```bash
+# See what Ansible discovers
+ansible-inventory -i ansible/inventory/aws_ec2.yml --graph
+
+# Ping all discovered EC2 instances
+ansible all -i ansible/inventory/aws_ec2.yml -m ping
+
+# Run playbook against dev environment
+ansible-playbook -i ansible/inventory/aws_ec2.yml ansible/site.yml \
+  --extra-vars "env=dev image_tag=abc1234 registry=pratik0207" \
+  --vault-password-file ansible/vault_password.txt
+```
+
+### Why dynamic inventory over static IPs
+
+| Approach                          | Problem                                                                 |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| Hardcoded IPs in `hosts.yml`      | Break when instance stops/starts, is replaced, or IP changes            |
+| Manual `--limit <ip>`             | You must remember and type the IP every run                             |
+| **Dynamic inventory (`aws_ec2`)** | **Auto-discovers by tag. Zero IP management. Works with Auto Scaling.** |
+
+Static inventories under `ansible/inventory/{dev,staging,prod}/hosts.yml` are kept as fallback for local testing against `localhost` or specific IPs.
+
+---
+
+<!--
 ## Demo Checklist for Interviews
 
 - [ ] GitHub repo with `main`, `develop`, feature branches and PR review
