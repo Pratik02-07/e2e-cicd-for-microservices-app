@@ -19,8 +19,8 @@ echo "=========================================="
 echo " Docker Images Built Successfully!"
 echo "=========================================="
 
-# echo "Pushing images to Docker Hub..."
-# for SERVICE in "${SERVICES[@]}"; do
-#   docker push "${DOCKER_USER}/${SERVICE}:${TAG}"
-# done
-# echo "Push complete!"
+echo "Pushing images to Docker Hub..."
+for SERVICE in "${SERVICES[@]}"; do
+  docker push "${DOCKER_USER}/${SERVICE}:${TAG}"
+done
+echo "Push complete!"

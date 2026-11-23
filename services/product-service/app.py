@@ -27,6 +27,13 @@ def get_product(product_id):
         return jsonify({"error": "product not found"}), 404
     return jsonify(product), 200
 
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=False)

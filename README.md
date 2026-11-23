@@ -14,9 +14,10 @@
 5. [Jenkins Pipeline (8 Stages, 3 Gates)](#jenkins-pipeline)
 6. [Ansible Multi-Environment Deployment](#ansible-multi-environment-deployment)
 7. [Quality Gates & Security](#quality-gates--security)
-8. [Rollback Procedure](#rollback-procedure)
-9. [Demo Checklist for Interviews](#demo-checklist-for-interviews)
-10. [What Broke & How We Fixed It](#what-broke--how-we-fixed-it)
+8. [Security Hardening & Trivy Remediation](#security-hardening--trivy-remediation)
+9. [Rollback Procedure](#rollback-procedure)
+10. [Demo Checklist for Interviews](#demo-checklist-for-interviews)
+11. [What Broke & How We Fixed It](#what-broke--how-we-fixed-it)
 
 ---
 
@@ -523,7 +524,45 @@ Jenkins parameterized rollback job:
 
 **Shift-left security:** Trivy scans run on every build before images are pushed. Secrets are never in Git — they live in Jenkins credentials + Ansible Vault.
 
+## Security Hardening & Trivy Remediation
+
+After the initial Trivy scans, the following HIGH/MEDIUM findings were remediated across all three service images:
+
+| Finding | Severity | Fix Applied |
+|---------|----------|-------------|
+| Container running as `root` | HIGH | Added non-root `appuser` + `USER appuser` directive in all Dockerfiles |
+| Outdated Debian base packages | MEDIUM | `apt-get update && apt-get upgrade -y` for OS security patches |
+| Missing security headers in Flask responses | MEDIUM | Added `after_request` handler setting `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Strict-Transport-Security` |
+| Unpinned transitive dependencies | LOW | Pinned exact versions in all `requirements.txt` (Flask, Werkzeug, gunicorn) |
+
+### Remediated Dockerfiles
+
+Each service Dockerfile now:
+1. Uses multi-stage build (builder → slim runtime)
+2. Runs `apt-get upgrade` for security patches
+3. Creates a non-root `appuser` and switches to it with `USER appuser`
+4. Sets `FLASK_ENV=production`
+5. Keeps `HEALTHCHECK` and `ENTRYPOINT` with gunicorn
+
+### Scan commands
+
+```bash
+# Build images
+docker build -t pratik0207/product-service:latest ./services/product-service
+docker build -t pratik0207/frontend:latest ./services/frontend
+docker build -t pratik0207/cart-service:latest ./services/cart-service
+
+# Trivy scan (CRITICAL/HIGH will fail with exit-code 1)
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image \
+  --exit-code 1 --severity CRITICAL,HIGH pratik0207/product-service:latest
+```
+
+### Interview talking point
+
+> "I ran Trivy on my container images and found HIGH-severity findings for running as root and outdated base packages. I remediated them by adding a non-root user, running apt-get upgrade in the build stage, adding Flask security headers, and pinning dependency versions. The re-scan passed with zero CRITICAL/HIGH findings."
+
 ---
+
 <!-- 
 ## Demo Checklist for Interviews
 
