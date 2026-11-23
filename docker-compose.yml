@@ -1,7 +1,6 @@
-version: "3.8"
-
 services:
   frontend:
+    build: ./services/frontend
     image: ${REGISTRY:-pratik0207}/frontend:${IMAGE_TAG:-latest}
     ports:
       - "80:80"
@@ -17,6 +16,7 @@ services:
       - app-net
 
   product-service:
+    build: ./services/product-service
     image: ${REGISTRY:-pratik0207}/product-service:${IMAGE_TAG:-latest}
     ports:
       - "5001:5001"
@@ -24,6 +24,7 @@ services:
       - app-net
 
   cart-service:
+    build: ./services/cart-service
     image: ${REGISTRY:-pratik0207}/cart-service:${IMAGE_TAG:-latest}
     ports:
       - "5002:5002"

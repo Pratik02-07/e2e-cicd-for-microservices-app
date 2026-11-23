@@ -15,11 +15,11 @@
                                              │ 8 stages      │
                                              └───────┬───────┘
                                                      │
-              ┌──────────┬──────────┬──────────┐   │
-              ▼          ▼          ▼          ▼   ▼
-        Checkout   Build+Test  SonarQube   Trivy  Docker Build
+              ┌──────────┬──────────┬──────────┐     │
+              ▼          ▼          ▼          ▼     ▼
+        Checkout   Build+Test  SonarQube   Trivy   Docker Build
           (gate)   (pytest)   [GATE 1]   [GATE 2]
-                                                     │
+                                                   │
               ┌──────────┬──────────┬──────────┐   │
               ▼          ▼          ▼          ▼   │
            Push     Deploy Dev  Approval   Deploy  │
@@ -33,18 +33,18 @@
 
 ## Components
 
-| Layer | Tool | Purpose |
-|-------|------|---------|
-| Source control | GitHub | main/develop/feature branches, PR reviews, branch protection |
-| CI/CD | Jenkins | Declarative pipeline, 8 stages, 3 quality gates |
-| Code quality | SonarQube | Gate 1 — blocks build on quality-gate failure |
-| Container scanning | Trivy | Gate 2 — blocks build on CRITICAL/HIGH CVEs |
-| Registry | Docker Hub / AWS ECR | Versioned image tags (commit SHA + latest) |
-| Config management | Ansible | Roles: docker + deploy_app; separate inventory per env |
-| Secrets | Ansible Vault + Jenkins credentials | No secrets in Git |
-| Deployment | Docker Compose | 3 services: frontend, product-service, cart-service |
-| Notification | Slack / Email | Success/failure alerts |
-| Rollback | Parameterized Jenkins job + rollback.sh | Re-deploy previous image tag |
+| Layer              | Tool                                    | Purpose                                                      |
+| ------------------ | --------------------------------------- | ------------------------------------------------------------ |
+| Source control     | GitHub                                  | main/develop/feature branches, PR reviews, branch protection |
+| CI/CD              | Jenkins                                 | Declarative pipeline, 8 stages, 3 quality gates              |
+| Code quality       | SonarQube                               | Gate 1 — blocks build on quality-gate failure                |
+| Container scanning | Trivy                                   | Gate 2 — blocks build on CRITICAL/HIGH CVEs                  |
+| Registry           | Docker Hub / AWS ECR                    | Versioned image tags (commit SHA + latest)                   |
+| Config management  | Ansible                                 | Roles: docker + deploy_app; separate inventory per env       |
+| Secrets            | Ansible Vault + Jenkins credentials     | No secrets in Git                                            |
+| Deployment         | Docker Compose                          | 3 services: frontend, product-service, cart-service          |
+| Notification       | Slack / Email                           | Success/failure alerts                                       |
+| Rollback           | Parameterized Jenkins job + rollback.sh | Re-deploy previous image tag                                 |
 
 ## Environments
 

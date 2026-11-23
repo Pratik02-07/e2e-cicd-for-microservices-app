@@ -5,5 +5,5 @@
     - group_vars/{{ env }}.yml
     - vault.yml
   roles:
-    - docker
+    - docker  
     - deploy_app
