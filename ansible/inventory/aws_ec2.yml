@@ -1,0 +1,15 @@
+plugin: amazon.aws.aws_ec2
+regions:
+  - ap-south-1 # change to your region (e.g., ap-south-1 for Mumbai)
+keyed_groups:
+  - prefix: env
+    key: tags.Environment
+    separator: ""
+  - prefix: group
+    key: tags.AnsibleGroup
+    separator: ""
+hostnames:
+  - tag:Name
+  - private-dns-name
+  - public-ip-address
+strict: false
