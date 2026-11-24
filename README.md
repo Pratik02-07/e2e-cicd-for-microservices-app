@@ -619,7 +619,7 @@ ansible-galaxy collection install amazon.aws
 ```yaml
 plugin: amazon.aws.aws_ec2
 regions:
-  - us-east-1 # change to your region (e.g., ap-south-1)
+  - ap-south-1 # change to your region (e.g., ap-south-1)
 keyed_groups:
   - prefix: env
     key: tags.Environment
@@ -676,7 +676,134 @@ ansible-playbook -i ansible/inventory/aws_ec2.yml ansible/site.yml \
 
 Static inventories under `ansible/inventory/{dev,staging,prod}/hosts.yml` are kept as fallback for local testing against `localhost` or specific IPs.
 
+## Infrastructure & Pre-Flight Checklist
+
+### EC2 Architecture (where everything runs)
+
+| Server | Purpose | Size | Runs |
+|--------|---------|------|------|
+| **EC2-1: Jenkins + SonarQube** | CI/CD server & code quality | t3.medium | Jenkins (port 8080), SonarQube (port 9000), Docker |
+| **EC2-2: Dev App** | Dev environment target | t3.micro | Docker, 3 microservices |
+| **EC2-3: Staging App** | Staging environment target | t3.micro | Docker, 3 microservices |
+| **EC2-4: Prod App** | Production environment target | t3.small | Docker, 3 microservices |
+
+> **Why separate Jenkins from app servers?** Jenkins is the CI/CD brain. App servers are the deployment targets. Keeping them separate mirrors real production architecture.
+
+### One-Time AWS Setup
+
+```bash
+# 1. Configure AWS CLI
+aws configure
+
+# 2. Create S3 bucket for Terraform state (one per AWS account)
+aws s3 mb s3://pratik-terraform-state --region ap-south-1
+
+# 3. Create DynamoDB table for state locking
+aws dynamodb create-table \
+  --table-name pratik-terraform-lock \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region ap-south-1
+
+# 4. Create EC2 Key Pair (note the exact name — must match key_name in tfvars)
+aws ec2 create-key-pair --key-name pratik-dev-key --query 'KeyMaterial' --output text > ~/.ssh/pratik-dev-key.pem
+chmod 400 ~/.ssh/pratik-dev-key.pem
+```
+
+### Terraform — Provision All 3 Environments
+
+```bash
+# Dev
+cd terraform/environments/dev
+terraform init
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars -auto-approve
+terraform output ec2_public_ip   # Copy this IP → ansible/inventory/dev/hosts.yml
+
+# Staging
+cd ../staging
+terraform init
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars -auto-approve
+terraform output ec2_public_ip   # Copy this IP → ansible/inventory/staging/hosts.yml
+
+# Prod
+cd ../prod
+terraform init
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars -auto-approve
+terraform output ec2_public_ip   # Copy this IP → ansible/inventory/prod/hosts.yml
+```
+
+### Jenkins & SonarQube Setup (on EC2-1)
+
+SSH into EC2-1 (Jenkins server), then:
+
+```bash
+# Run setup.sh to start Jenkins + SonarQube + pull Trivy
+./setup.sh
+
+# Jenkins URL: http://<EC2-1-PUBLIC-IP>:8080
+# SonarQube URL: http://<EC2-1-PUBLIC-IP>:9000
+```
+
+Then in Jenkins UI:
+1. **Manage Jenkins → Credentials → Add:**
+   - `sonar-token` → Secret Text (from SonarQube → My Account → Security)
+   - `dockerhub-creds` → Secret Text (your Docker Hub password)
+   - `ansible-vault` → Secret Text (your vault password)
+   - `slack-webhook` → Secret Text (Slack webhook URL)
+2. **Manage Jenkins → Plugins → Install:** SonarQube Scanner, Docker Pipeline, Ansible, Slack Notification
+3. **New Item → Pipeline → `microservices-cicd`** → Pipeline script from SCM → point to your GitHub repo → Script Path: `jenkins/Jenkinsfile`
+4. **GitHub Webhook:** Settings → Webhooks → Add webhook → `http://<EC2-1-PUBLIC-IP>:8080/github-webhook/`
+
+### Ansible Vault Encryption
+
+```bash
+cd ansible
+
+# Create vault password file (gitignored — never commit)
+echo "your-secure-vault-password" > vault_password.txt
+chmod 600 vault_password.txt
+
+# Encrypt secrets
+ansible-vault create vault.yml --vault-password-file vault_password.txt
+# Enter: db_password, api_secret, registry_password
+
+# Verify it's encrypted
+ansible-vault view vault.yml --vault-password-file vault_password.txt
+```
+
+### Update Ansible Inventories with Real IPs
+
+After Terraform outputs the public IPs, replace the placeholders:
+
+| File | Replace |
+|------|---------|
+| `ansible/inventory/dev/hosts.yml` | `13.126.90.45` → dev EC2 public IP |
+| `ansible/inventory/staging/hosts.yml` | `127.0.0.1` → staging EC2 public IP |
+| `ansible/inventory/prod/hosts.yml` | `127.0.0.1` → prod EC2 public IP |
+
+Also update `jenkins/Jenkinsfile`:
+- `SONAR_URL` → `http://<EC2-1-PUBLIC-IP>:9000`
+
+### Pre-Flight Checklist Before Pushing to GitHub
+
+- [ ] `CloudOps.pem` deleted from repo (private key — never commit)
+- [ ] `*.pem` added to `.gitignore`
+- [ ] `ansible/vault.yml` is encrypted (run `ansible-vault view` to confirm)
+- [ ] `ansible/vault_password.txt` is gitignored and NOT committed
+- [ ] All `127.0.0.1` placeholders replaced with real EC2 IPs
+- [ ] `SONAR_URL` points to your Jenkins/SonarQube EC2 IP (not `localhost`)
+- [ ] Terraform staging/prod files filled (not empty)
+- [ ] AWS S3 bucket + DynamoDB table created for remote state
+- [ ] Docker Hub account created and `REGISTRY` set in Jenkinsfile
+
 ---
+
+<!-- 
+## Demo Checklist for Interviews
 
 <!--
 ## Demo Checklist for Interviews

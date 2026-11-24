@@ -25,4 +25,4 @@ crash.log
 *.tfvars
 **/.terraform/**
 **/*.tfstate*
-CloudOps.pem
+**/*.pem
