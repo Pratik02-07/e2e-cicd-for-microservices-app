@@ -4,7 +4,7 @@ pipeline {
     environment {
         REGISTRY       = 'pratik0207'          // your Docker Hub / AWS ECR repo name
         APP_NAME       = 'microservices-app'
-        SONAR_URL      = 'http://localhost:9000'
+        SONAR_URL      = 'http://<SONARQUBE_EC2_PUBLIC_IP>:9000'  # Replace with your SonarQube EC2 public IP
         SONAR_TOKEN    = credentials('sonar-token')
         DOCKER_CREDS   = credentials('dockerhub-creds')
         ANSIBLE_VAULT  = credentials('ansible-vault')
