@@ -1,16 +1,13 @@
-- name: Install Docker and Compose plugin from Amazon Linux repos
-  dnf:
-    name:
-      - docker
-      - docker-compose-plugin
-    state: present
-    update_cache: yes
-
-- name: Start and enable Docker service
+- name: Ensure Docker service is started and enabled
   service:
     name: docker
     state: started
     enabled: yes
+
+- name: Install Docker Compose plugin
+  dnf:
+    name: docker-compose-plugin
+    state: present
 
 - name: Add deploy user to docker group
   user:
