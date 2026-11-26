@@ -10,8 +10,18 @@
     dest: "/opt/{{ app_name }}/docker-compose.yml"
     mode: '0644'
 
-- name: Pull images and start containers via docker compose
-  command: docker compose up -d
+- name: Install python3-pip for docker-compose
+  dnf:
+    name: python3-pip
+    state: present
+
+- name: Install docker-compose via pip
+  command: pip3 install docker-compose
+  register: pip_result
+  changed_when: "'Successfully installed' in pip_result.stdout or 'already satisfied' in pip_result.stdout"
+
+- name: Pull images and start containers via docker-compose
+  command: docker-compose up -d
   args:
     chdir: "/opt/{{ app_name }}"
 
