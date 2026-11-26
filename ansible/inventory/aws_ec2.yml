@@ -1,6 +1,11 @@
 plugin: amazon.aws.aws_ec2
 regions:
-  - ap-south-1 # change to your region (e.g., ap-south-1 for Mumbai)
+  - ap-south-1
+
+# Filter out terminated/stopped instances so ping doesn't fail on dead hosts
+filters:
+  instance-state-name: running
+
 keyed_groups:
   - prefix: env
     key: tags.Environment
@@ -8,8 +13,16 @@ keyed_groups:
   - prefix: group
     key: tags.AnsibleGroup
     separator: ""
+
 hostnames:
   - tag:Name
   - private-dns-name
   - public-ip-address
+
+# Map the actual SSH connection details
+compose:
+  ansible_host: public_ip_address
+  ansible_user: "'ec2-user'" # Change to "'ubuntu'" if your AMIs are Ubuntu
+  ansible_ssh_private_key_file: "'~/.ssh/CloudOps.pem'"
+
 strict: false

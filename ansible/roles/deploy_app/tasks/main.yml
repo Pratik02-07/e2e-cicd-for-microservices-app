@@ -11,10 +11,9 @@
     mode: '0644'
 
 - name: Pull images and start containers
-  community.docker.docker_compose_v2:
-    project_src: "/opt/{{ app_name }}"
-    build: no
-  register: compose_result
+  command: docker compose up -d
+  args:
+    chdir: "/opt/{{ app_name }}"
 
 - name: Wait for frontend to become healthy
   uri:

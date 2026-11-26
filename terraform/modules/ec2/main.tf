@@ -21,11 +21,10 @@ resource "aws_instance" "this" {
   iam_instance_profile   = var.iam_instance_profile
   key_name               = var.key_name
 
-  user_data = base64encode(file("user-data.sh"))
+  user_data = base64encode(file("${path.module}/user-data.sh"))
 
   tags = merge(var.tags, var.extra_tags)
 
-  # Industry standard: terminate with protection off for dev, on for prod
   disable_api_termination = var.env_name == "prod"
 
   lifecycle {
