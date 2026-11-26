@@ -4,7 +4,7 @@ pipeline {
     environment {
         REGISTRY       = 'pratik0207'          // your Docker Hub / AWS ECR repo name
         APP_NAME       = 'microservices-app'
-        SONAR_URL      = 'http://13.206.69.137:9000'  # Replace with your SonarQube EC2 public IP
+        SONAR_URL      = 'http://13.206.69.137:9000'  // SonarQube EC2 public IP
         SONAR_TOKEN    = credentials('sonar-token')
         DOCKER_CREDS   = credentials('dockerhub-creds')
         ANSIBLE_VAULT  = credentials('ansible-vault')
@@ -72,12 +72,16 @@ pipeline {
         stage('Trivy Vulnerability Scan') {
             steps {
                 // GATE 2: fail if CRITICAL or HIGH vulnerabilities found
+                // Uses Trivy via Docker so it does not need to be installed on the Jenkins agent
                 sh '''
-                    trivy image --exit-code 1 --severity CRITICAL,HIGH \
+                    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
+                      --exit-code 1 --severity CRITICAL,HIGH \
                       ${REGISTRY}/product-service:${env.IMAGE_TAG}
-                    trivy image --exit-code 1 --severity CRITICAL,HIGH \
+                    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
+                      --exit-code 1 --severity CRITICAL,HIGH \
                       ${REGISTRY}/cart-service:${env.IMAGE_TAG}
-                    trivy image --exit-code 1 --severity CRITICAL,HIGH \
+                    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
+                      --exit-code 1 --severity CRITICAL,HIGH \
                       ${REGISTRY}/frontend:${env.IMAGE_TAG}
                 '''
             }
@@ -101,10 +105,11 @@ pipeline {
         stage('Deploy to Dev') {
             when { branch 'develop' }
             steps {
+                sh 'printf "%s" "$ANSIBLE_VAULT" > /tmp/vault_pass.txt'
                 sh '''
                     ansible-playbook -i ansible/inventory/dev/hosts.yml ansible/site.yml \
                       --extra-vars "env=dev image_tag=${env.IMAGE_TAG} registry=${REGISTRY}" \
-                      --vault-password-file ansible/vault_password.txt
+                      --vault-password-file /tmp/vault_pass.txt
                 '''
             }
         }
@@ -119,25 +124,38 @@ pipeline {
         stage('Deploy to Staging & Production') {
             when { branch 'main' }
             steps {
+                sh 'printf "%s" "$ANSIBLE_VAULT" > /tmp/vault_pass.txt'
                 sh '''
                     ansible-playbook -i ansible/inventory/staging/hosts.yml ansible/site.yml \
                       --extra-vars "env=staging image_tag=${env.IMAGE_TAG} registry=${REGISTRY}" \
-                      --vault-password-file ansible/vault_password.txt
+                      --vault-password-file /tmp/vault_pass.txt
                 '''
                 sh '''
                     ansible-playbook -i ansible/inventory/prod/hosts.yml ansible/site.yml \
                       --extra-vars "env=prod image_tag=${env.IMAGE_TAG} registry=${REGISTRY}" \
-                      --vault-password-file ansible/vault_password.txt
+                      --vault-password-file /tmp/vault_pass.txt
                 '''
             }
             post {
                 success {
-                    slackSend color: 'good',
-                              message: "*SUCCESS* Microservices app deployed to Staging & Prod (tag: ${env.IMAGE_TAG})"
+                    script {
+                        try {
+                            slackSend color: 'good',
+                                      message: "*SUCCESS* Microservices app deployed to Staging & Prod (tag: ${env.IMAGE_TAG})"
+                        } catch (Exception e) {
+                            echo "Slack notification skipped (plugin not configured): ${e.message}"
+                        }
+                    }
                 }
                 failure {
-                    slackSend color: 'danger',
-                              message: "*FAILURE* Pipeline failed at tag ${env.IMAGE_TAG}"
+                    script {
+                        try {
+                            slackSend color: 'danger',
+                                      message: "*FAILURE* Pipeline failed at tag ${env.IMAGE_TAG}"
+                        } catch (Exception e) {
+                            echo "Slack notification skipped (plugin not configured): ${e.message}"
+                        }
+                    }
                 }
             }
         }
@@ -145,11 +163,23 @@ pipeline {
 
     post {
         always {
-            cleanWs()
+            script {
+                try {
+                    cleanWs()
+                } catch (Exception e) {
+                    echo "cleanWs skipped (plugin not installed): ${e.message}"
+                }
+            }
         }
         failure {
-            slackSend color: 'danger',
-                      message: "*PIPELINE FAILED* ${env.JOB_NAME} #${env.BUILD_NUMBER} — ${env.BUILD_URL}"
+            script {
+                try {
+                    slackSend color: 'danger',
+                              message: "*PIPELINE FAILED* ${env.JOB_NAME} #${env.BUILD_NUMBER} — ${env.BUILD_URL}"
+                } catch (Exception e) {
+                    echo "Slack notification skipped (plugin not configured): ${e.message}"
+                }
+            }
         }
     }
 }
