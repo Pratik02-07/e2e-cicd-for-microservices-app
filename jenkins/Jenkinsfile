@@ -2,14 +2,14 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY       = 'pratik0207'          // your Docker Hub / AWS ECR repo name
+        REGISTRY       = 'pratik0207'                  // Docker Hub account / ECR repo
         APP_NAME       = 'microservices-app'
         SONAR_URL      = 'http://13.206.69.137:9000'  // SonarQube EC2 public IP
         SONAR_TOKEN    = credentials('sonar-token')
         DOCKER_CREDS   = credentials('dockerhub-creds')
         ANSIBLE_VAULT  = credentials('ansible-vault')
         SLACK_WEBHOOK  = credentials('slack-webhook')
-        PIP_BREAK_SYSTEM_PACKAGES = '1'        // allow pip on Debian 12 (PEP 668)
+        PIP_BREAK_SYSTEM_PACKAGES = '1'                // allow pip on Debian 12 (PEP 668)
     }
 
     stages {
@@ -55,14 +55,14 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
-                        def frontendImg = docker.build("${REGISTRY}/frontend:${env.IMAGE_TAG}")
-                        def productImg  = docker.build("${REGISTRY}/product-service:${env.IMAGE_TAG}")
-                        def cartImg     = docker.build("${REGISTRY}/cart-service:${env.IMAGE_TAG}")
+                        def frontendImg = docker.build("${env.REGISTRY}/frontend:${env.IMAGE_TAG}", "./services/frontend")
+                        def productImg  = docker.build("${env.REGISTRY}/product-service:${env.IMAGE_TAG}", "./services/product-service")
+                        def cartImg     = docker.build("${env.REGISTRY}/cart-service:${env.IMAGE_TAG}", "./services/cart-service")
 
                         // also tag as latest
-                        frontendImg.tag("${REGISTRY}/frontend:latest")
-                        productImg.tag("${REGISTRY}/product-service:latest")
-                        cartImg.tag("${REGISTRY}/cart-service:latest")
+                        frontendImg.tag("${env.REGISTRY}/frontend:latest")
+                        productImg.tag("${env.REGISTRY}/product-service:latest")
+                        cartImg.tag("${env.REGISTRY}/cart-service:latest")
 
                         echo "Images built and tagged: ${env.IMAGE_TAG}"
                     }
@@ -72,18 +72,18 @@ pipeline {
 
         stage('Trivy Vulnerability Scan') {
             steps {
-                // GATE 2: fail if CRITICAL or HIGH vulnerabilities found
-                // Uses Trivy via Docker so it does not need to be installed on the Jenkins agent
+                // GATE 2: fail if CRITICAL or HIGH vulnerabilities found.
+                // Trivy runs via Docker, so it does not need to be installed on the Jenkins agent.
                 sh '''
                     docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
                       --exit-code 1 --severity CRITICAL,HIGH \
-                      ${REGISTRY}/product-service:${env.IMAGE_TAG}
+                      ${REGISTRY}/product-service:${IMAGE_TAG}
                     docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
                       --exit-code 1 --severity CRITICAL,HIGH \
-                      ${REGISTRY}/cart-service:${env.IMAGE_TAG}
+                      ${REGISTRY}/cart-service:${IMAGE_TAG}
                     docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image \
                       --exit-code 1 --severity CRITICAL,HIGH \
-                      ${REGISTRY}/frontend:${env.IMAGE_TAG}
+                      ${REGISTRY}/frontend:${IMAGE_TAG}
                 '''
             }
         }
@@ -92,12 +92,12 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
-                        docker.image("${REGISTRY}/frontend:${env.IMAGE_TAG}").push()
-                        docker.image("${REGISTRY}/frontend:latest").push()
-                        docker.image("${REGISTRY}/product-service:${env.IMAGE_TAG}").push()
-                        docker.image("${REGISTRY}/product-service:latest").push()
-                        docker.image("${REGISTRY}/cart-service:${env.IMAGE_TAG}").push()
-                        docker.image("${REGISTRY}/cart-service:latest").push()
+                        docker.image("${env.REGISTRY}/frontend:${env.IMAGE_TAG}").push()
+                        docker.image("${env.REGISTRY}/frontend:latest").push()
+                        docker.image("${env.REGISTRY}/product-service:${env.IMAGE_TAG}").push()
+                        docker.image("${env.REGISTRY}/product-service:latest").push()
+                        docker.image("${env.REGISTRY}/cart-service:${env.IMAGE_TAG}").push()
+                        docker.image("${env.REGISTRY}/cart-service:latest").push()
                     }
                 }
             }
@@ -109,7 +109,7 @@ pipeline {
                 sh 'printf "%s" "$ANSIBLE_VAULT" > /tmp/vault_pass.txt'
                 sh '''
                     ansible-playbook -i ansible/inventory/dev/hosts.yml ansible/site.yml \
-                      --extra-vars "env=dev image_tag=${env.IMAGE_TAG} registry=${REGISTRY}" \
+                      --extra-vars "env=dev image_tag=${IMAGE_TAG} registry=${REGISTRY}" \
                       --vault-password-file /tmp/vault_pass.txt
                 '''
             }
@@ -128,12 +128,12 @@ pipeline {
                 sh 'printf "%s" "$ANSIBLE_VAULT" > /tmp/vault_pass.txt'
                 sh '''
                     ansible-playbook -i ansible/inventory/staging/hosts.yml ansible/site.yml \
-                      --extra-vars "env=staging image_tag=${env.IMAGE_TAG} registry=${REGISTRY}" \
+                      --extra-vars "env=staging image_tag=${IMAGE_TAG} registry=${REGISTRY}" \
                       --vault-password-file /tmp/vault_pass.txt
                 '''
                 sh '''
                     ansible-playbook -i ansible/inventory/prod/hosts.yml ansible/site.yml \
-                      --extra-vars "env=prod image_tag=${env.IMAGE_TAG} registry=${REGISTRY}" \
+                      --extra-vars "env=prod image_tag=${IMAGE_TAG} registry=${REGISTRY}" \
                       --vault-password-file /tmp/vault_pass.txt
                 '''
             }
