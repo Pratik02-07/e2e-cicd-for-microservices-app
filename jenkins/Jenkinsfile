@@ -6,9 +6,7 @@ pipeline {
         APP_NAME       = 'microservices-app'
         SONAR_URL      = 'http://13.206.69.137:9000'  // SonarQube EC2 public IP
         SONAR_TOKEN    = credentials('sonar-token')
-        DOCKER_CREDS   = credentials('dockerhub-creds')
         ANSIBLE_VAULT  = credentials('ansible-vault')
-        SLACK_WEBHOOK  = credentials('slack-webhook')
         PIP_BREAK_SYSTEM_PACKAGES = '1'                // allow pip on Debian 12 (PEP 668)
     }
 
