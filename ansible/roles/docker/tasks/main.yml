@@ -5,10 +5,15 @@
     state: present
 
 - name: Add Docker CE repository
-  command: yum-config-manager --add-repo https://download.docker.com/linux/centos/9/x86_64/stable.repo
-  creates: /etc/yum.repos.d/docker-ce.repo
+  yum_repository:
+    name: docker-ce-stable
+    description: Docker CE Stable Repository
+    baseurl: https://download.docker.com/linux/centos/9/x86_64/stable
+    gpgcheck: yes
+    gpgkey: https://download.docker.com/linux/centos/gpg
+    enabled: yes
 
-- name: Install Docker Engine and Compose plugin
+- name: Install Docker Engine and Compose V2 plugin
   dnf:
     name:
       - docker-ce
