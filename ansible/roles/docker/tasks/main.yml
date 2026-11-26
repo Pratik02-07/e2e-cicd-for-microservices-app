@@ -1,10 +1,69 @@
+---
+- name: Remove leftover Docker CE repository (conflicts with Amazon Linux docker)
+  file:
+    path: /etc/yum.repos.d/docker-ce.repo
+    state: absent
+
+- name: Check rpm-managed Python packages for damage from the failed pip run
+  command: rpm -V python3-urllib3 python3-cffi python3-requests
+  register: python_rpm_verify
+  changed_when: false
+  failed_when: false
+
+- name: Repair rpm-managed Python packages
+  command: dnf reinstall -y python3-urllib3 python3-cffi python3-requests
+  when: python_rpm_verify.rc != 0
+  changed_when: true
+
+- name: Install Docker from the Amazon Linux repositories
+  dnf:
+    name: docker
+    state: present
+
 - name: Ensure Docker service is started and enabled
   service:
     name: docker
     state: started
     enabled: yes
 
-- name: Add deploy user to docker group
+- name: Check whether the Docker Compose plugin is usable
+  command: docker compose version
+  register: docker_compose_check
+  changed_when: false
+  failed_when: false
+
+- name: Remove the unusable Docker Compose plugin
+  file:
+    path: "{{ docker_cli_plugins_dir }}/docker-compose"
+    state: absent
+  when: docker_compose_check.rc != 0
+
+- name: Ensure the Docker CLI plugin directory exists
+  file:
+    path: "{{ docker_cli_plugins_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Select the Docker Compose release asset for this architecture
+  set_fact:
+    docker_compose_arch: >-
+      {{ 'aarch64' if ansible_architecture == 'aarch64'
+         else 'x86_64' if ansible_architecture == 'x86_64'
+         else 'armv7' if ansible_architecture in ['armv7', 'armv7l']
+         else ansible_architecture }}
+
+- name: Install the Docker Compose v2 plugin
+  get_url:
+    url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-linux-{{ docker_compose_arch }}"
+    dest: "{{ docker_cli_plugins_dir }}/docker-compose"
+    mode: '0755'
+  when: docker_compose_check.rc != 0
+
+- name: Verify the Docker Compose plugin
+  command: docker compose version
+  changed_when: false
+
+- name: Add deploy user to the docker group
   user:
     name: "{{ ansible_user }}"
     groups: docker

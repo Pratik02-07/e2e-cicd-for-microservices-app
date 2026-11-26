@@ -1,7 +1,7 @@
-version: "3.8"
 services:
   frontend:
     image: {{ registry }}/frontend:{{ image_tag }}
+    restart: unless-stopped
     ports:
       - "{{ frontend_port }}:80"
     environment:
@@ -17,6 +17,7 @@ services:
 
   product-service:
     image: {{ registry }}/product-service:{{ image_tag }}
+    restart: unless-stopped
     ports:
       - "{{ product_port }}:5001"
     networks:
@@ -24,6 +25,7 @@ services:
 
   cart-service:
     image: {{ registry }}/cart-service:{{ image_tag }}
+    restart: unless-stopped
     ports:
       - "{{ cart_port }}:5002"
     networks:
