@@ -4,11 +4,6 @@
     state: started
     enabled: yes
 
-- name: Install Docker Compose plugin
-  dnf:
-    name: docker-compose-plugin
-    state: present
-
 - name: Add deploy user to docker group
   user:
     name: "{{ ansible_user }}"

@@ -10,7 +10,7 @@
     dest: "/opt/{{ app_name }}/docker-compose.yml"
     mode: '0644'
 
-- name: Pull images and start containers
+- name: Pull images and start containers via docker compose
   command: docker compose up -d
   args:
     chdir: "/opt/{{ app_name }}"
