@@ -1,24 +1,7 @@
-- name: Install required system packages
+- name: Install Docker and Compose plugin from Amazon Linux repos
   dnf:
     name:
-      - yum-utils
-    state: present
-
-- name: Add Docker CE repository
-  yum_repository:
-    name: docker-ce-stable
-    description: Docker CE Stable Repository
-    baseurl: https://download.docker.com/linux/centos/9/x86_64/stable
-    gpgcheck: yes
-    gpgkey: https://download.docker.com/linux/centos/gpg
-    enabled: yes
-
-- name: Install Docker Engine and Compose V2 plugin
-  dnf:
-    name:
-      - docker-ce
-      - docker-ce-cli
-      - containerd.io
+      - docker
       - docker-compose-plugin
     state: present
     update_cache: yes
